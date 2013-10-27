@@ -1,0 +1,11 @@
+Source: libpam-privtmp
+Section: admin
+Priority: extra
+Maintainer: Sergey Zhuravlev <sergey@netangels.ru>
+Build-Depends: debhelper (>= 9), libpam0g-dev
+Standards-Version: 3.9.4
+
+Package: libpam-privtmp
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: PAM module which bind mount user's local temp dir to /tmp
