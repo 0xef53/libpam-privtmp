@@ -8,4 +8,4 @@ Standards-Version: 3.9.4
 Package: libpam-privtmp
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: PAM module which bind mount user's local temp dir to /tmp
+Description: PAM module which binds users's local temp to /tmp
