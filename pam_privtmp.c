@@ -1,3 +1,5 @@
+#include <errno.h>
+#include <sched.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -30,7 +32,6 @@ void to_log(int prio, const char *format, ...)
     closelog();
 }
 
-
 int pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **argv)
 {
     const char *PAM_user = NULL;
@@ -56,27 +57,38 @@ int pam_sm_open_session(pam_handle_t *pamh, int flags, int argc, const char **ar
 
     snprintf(usertmp, 200, "%s/tmp", pw->pw_dir);
     ret = stat(usertmp, &statbuf);
-    if (ret == 0 && S_ISDIR(statbuf.st_mode)) {
-        // Try to unshare
-        ret = unshare(CLONE_NEWNS);
+    if (ret != 0 || ! S_ISDIR(statbuf.st_mode)) {
+        to_log(LOG_INFO, "user's temp dir not found: '%s'. Trying to create it.\n", usertmp);
+        ret = mkdir(usertmp, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
         if (ret) {
-            to_log(LOG_ERR, "failed to unshare mounts namespace for user %s\n", pw->pw_name);
+            to_log(LOG_ERR, "Can't create user's temp dir '%s'. %s\n", usertmp, strerror(errno));
             return PAM_SESSION_ERR;
         }
-        // Mark / as slave
-        ret = mount("", "/", "none", MS_REC|MS_SLAVE, NULL);
+        ret = chown(usertmp, pw->pw_uid, pw->pw_gid);
         if (ret) {
-            to_log(LOG_ERR, "failed to mark root tree as rslave for user %s\n", pw->pw_name);
+            to_log(LOG_ERR, "can't chown user's temp directory '%s' for user '%s'\n", usertmp, pw->pw_name);
             return PAM_SESSION_ERR;
         }
-        // Mount user's tmp
-        ret = mount(usertmp, "/tmp", "none", MS_BIND, NULL);
-        if (ret) {
-            to_log(LOG_ERR, "failed to bind mount temp dir for user %s\n", pw->pw_name);
-            return PAM_SESSION_ERR;
-        }
-    } else
-        to_log(LOG_INFO, "user's temp dir not found: %s\n", usertmp);
+    }
+
+    // Try to unshare
+    ret = unshare(CLONE_NEWNS);
+    if (ret) {
+        to_log(LOG_ERR, "failed to unshare mounts namespace for user %s\n", pw->pw_name);
+        return PAM_SESSION_ERR;
+    }
+    // Mark / as slave
+    ret = mount("", "/", "none", MS_REC|MS_SLAVE, NULL);
+    if (ret) {
+        to_log(LOG_ERR, "failed to mark root tree as rslave for user %s\n", pw->pw_name);
+        return PAM_SESSION_ERR;
+    }
+    // Mount user's tmp
+    ret = mount(usertmp, "/tmp", "none", MS_BIND, NULL);
+    if (ret) {
+        to_log(LOG_ERR, "failed to bind mount temp dir for user %s\n", pw->pw_name);
+        return PAM_SESSION_ERR;
+    }
 
      return PAM_SUCCESS;
 }
