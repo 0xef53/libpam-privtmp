@@ -1,3 +1,9 @@
+libpam-privtmp (0.1-2) unstable; urgency=low
+
+  * Autocreate user's tmp directory if doesn't exist.
+
+ -- Eugeny Sokolov <esokolov@netangels.ru>  Sun,  2 May 2017 19:44:24 +0600
+
 libpam-privtmp (0.1-1) unstable; urgency=low
 
   * Initial release.
